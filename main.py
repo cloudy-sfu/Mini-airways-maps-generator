@@ -12,6 +12,9 @@ import pandas as pd
 from airports_base import get_airport_info
 from coord_to_dist import location_offset, location_offset_inverse
 from open_street_map import get_map
+from little_nav_map import parse_geometry
+from shapely.geometry import Polygon
+from shapely import get_coordinates
 
 # %% Start logging system.
 logging.basicConfig(
@@ -24,12 +27,9 @@ logging.basicConfig(
 arg_parser = ArgumentParser()
 arg_parser.add_argument("--db_path", required=True, type=str)
 arg_parser.add_argument("--icao", required=True, type=str)
-arg_parser.add_argument("--min_cam_size",
-                        required=False, default=6.5, type=float)
-arg_parser.add_argument("--max_cam_size",
-                        required=False, default=10.5, type=float)
-arg_parser.add_argument("--vertical_resolution",
-                        required=False, default=1440, type=int)
+arg_parser.add_argument("--min_cam_size", required=False, default=6.5, type=float)
+arg_parser.add_argument("--max_cam_size", required=False, default=10.5, type=float)
+arg_parser.add_argument("--vertical_resolution", required=False, default=1440, type=int)
 args, _ = arg_parser.parse_known_args()
 
 # %% Initialization.
@@ -62,6 +62,8 @@ west_lon, south_lat = location_offset_inverse(
     airport_center_lon, airport_center_lat,
     west_offset, south_offset
 )
+assert not np.isnan([west_lon, east_lon, south_lat, north_lat]).any(), \
+    "Airspace exceeds latitude range 85°S -> 85°N."
 background_map = get_map(
     west_lon, east_lon, south_lat, north_lat, args.vertical_resolution)
 
@@ -77,7 +79,8 @@ mini_airways_map = {
     "SpawnPoints": [],
     "TxtMarkers": [],
     "ImageMarkers": [],
-    "MapName": f"{airport_info['name']}, {airport_info['city']}, {airport_info['country']}",
+    "MapName": f"{airport_info['name']} Airport, {airport_info['city']}, "
+               f"{airport_info['country']}",
     "BGImageB64": background_map,
     "MapSize": 1,
     "MinimumCamSize": args.min_cam_size,
@@ -139,6 +142,72 @@ for i, runway in runways.iterrows():
         "restrictLandEnd": False
     }
     mini_airways_map["Runways"].append(ma_runway)
+
+# %% Restricted area.
+with open("sql/restricted.sql") as f:
+    sql_restricted_1 = f.read()
+ext_dist = 0.5
+text_size = 0.2
+text_horizontal_bound = args.max_cam_size * 16 / 9 - 0.5
+text_vertical_bound = args.max_cam_size - 0.3
+restricted_type_dict = {  # See also: sql/restricted.sql
+    "P": "Prohibited",
+    "R": "Restricted",
+    "M": "Military",
+    "W": "Warning",
+    "AL": "Alert",
+    "DA": "Danger",
+    "CN": "Caution",
+}
+restricted = pd.read_sql(sql_restricted_1, c, params={
+    "west_lon": west_lon,
+    "east_lon": east_lon,
+    "south_lat": south_lat,
+    "north_lat": north_lat,
+})
+restricted['geometry'] = restricted['geometry'].apply(parse_geometry)
+for _, area in restricted.iterrows():
+    vertex_coords = area['geometry']
+    vertex_x_km, vertex_y_km = location_offset(
+        airport_center_lon, airport_center_lat,
+        vertex_coords[:, 0], vertex_coords[:, 1]
+    )
+    vertex_x = vertex_x_km * scale
+    vertex_y = vertex_y_km * scale
+    center_x = np.mean(vertex_x)
+    center_y = np.mean(vertex_y)
+    vertex_x -= center_x
+    vertex_y -= center_y
+    inner_shape = Polygon(np.column_stack([vertex_x, vertex_y]))
+    outer_shape = inner_shape.buffer(
+        distance=ext_dist,
+        join_style="mitre",
+        mitre_limit=1,
+    )
+    outer_path = get_coordinates(outer_shape.exterior)[:-1]
+    ma_area = {
+        "x": center_x,
+        "y": center_y,
+        "innerPath": [
+            {"x": vertex_x[i], "y": vertex_y[i]}
+            for i in range(vertex_coords.shape[0])
+        ],
+        "outerPath": [
+            {"x": outer_path[i, 0], "y": outer_path[i, 1]}
+            for i in range(outer_path.shape[0])
+        ],
+        "extDist": ext_dist,
+    }
+    mini_airways_map["RestrictedAreas"].append(ma_area)
+    label = {
+        "x": np.clip(-text_horizontal_bound, center_x, text_horizontal_bound),
+        "y": np.clip(-text_vertical_bound, center_y, text_vertical_bound),
+        "r": 0,
+        "text": f"{restricted_type_dict.get(area["type"], "Unidentified")}:\n"
+                f"{area["name"]}",
+        "size": text_size,
+    }
+    mini_airways_map["TxtMarkers"].append(label)
 
 # %% Export.
 cycle_path = os.path.join(args.db_path, "cycle.json")

@@ -6,19 +6,14 @@ Generate maps of real-world airports by ICAO code in game "Mini Airways"
 
 ## Acknowledgement
 
-Required paid service:
+| Data source                                                  | Description                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| [Navigraph Unlimited](https://navigraph.com/pricing)         | [Paid service] It needs to be active when updating the database. The database must exist but can be outdated when running the program. |
+| [Airport codes](https://airportsbase.org/ICAO.php)           | The program depends (embeds) the data source. If the website is not available anymore, the program cannot run. |
+| [Open street map](https://www.openstreetmap.org/copyright)   | The program depends (embeds) the data source. If the website is not available anymore, the program cannot run. |
+| [Airport code database search](https://www.avcodes.co.uk/aptcodesearch.asp) | Recommended but not required. It is a convenient tool to find ICAO code of an airport, while users can remember or use alternative source to find ICAO code. |
 
-[Navigraph Unlimited](https://navigraph.com/pricing)
 
-Required (depended, embedded) data source:
-
-[Airport codes](https://airportsbase.org/ICAO.php)
-
-[Open street map](https://www.openstreetmap.org/copyright)
-
-Recommended data source in usage:
-
-[Airport code database search](https://www.avcodes.co.uk/aptcodesearch.asp)
 
 ## Install
 
@@ -60,9 +55,9 @@ Arguments:
 | ----------------------- | --------- | --------- | ------------------------------------------------------------ |
 | `--db_path`             | ✓         | str       | Path to Little NavMap database, which is `$navmap/little_navmap_db`. |
 | `--icao`                | ✓         | str       | [ICAO code](https://www.avcodes.co.uk/aptcodesearch.asp) of airport. |
-| `--min_cam_size`        |           | float     | Initial camera size, artificial unit defined by game developer. *Default: 6.5* |
-| `--max_cam_size`        |           | float     | Camera size after applying maximum times of the airspace expansion, artificial unit defined by game developer. *Default: 10.5* |
-| `--vertical_resolution` |           | int       | Vertical pixels of the background map. Aspect ratio is fixed to 16:9. If actual screen resolution is smaller than it, the game can down-sampled automatically. *Default: 1440* (represents 2560*1440 resolution) |
+| `--min_cam_size`        |           | float     | Initial camera size, artificial unit defined by game developer. Default: 6.5. |
+| `--max_cam_size`        |           | float     | Camera size after applying maximum times of the airspace expansion, artificial unit defined by game developer. Default: 10.5. |
+| `--vertical_resolution` |           | int       | Vertical pixels of the background map. Aspect ratio is fixed to 16:9. If actual screen resolution is smaller than it, the game can down-sampled automatically. Default: 1440 (represents 2560*1440 resolution). |
 
 
 
