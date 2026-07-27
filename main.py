@@ -8,9 +8,8 @@ from argparse import ArgumentParser
 
 import numpy as np
 import pandas as pd
-from shapely import Polygon
-from shapely import get_coordinates
-from shapely.affinity import translate
+from shapely import get_coordinates, Polygon
+from shapely.affinity import scale, translate
 
 from airports_base import get_airport_info
 from coord_to_dist import location_offset, location_offset_inverse
@@ -51,8 +50,8 @@ airport_center_lon = airport_loc["lonx"]
 airport_center_lat = airport_loc["laty"]
 
 # %% Get airspace map.
-scale = 0.69  # unit: point/km
-north_offset = args.max_cam_size / scale
+ma_scale = 0.69  # unit: point/km
+north_offset = args.max_cam_size / ma_scale
 south_offset = - north_offset
 east_offset = north_offset * 16 / 9
 west_offset = - east_offset
@@ -109,7 +108,7 @@ mini_airways_map = {
 
 # %% Runways.
 runway_pattern = re.compile(r'^(0[1-9]|[12]\d|3[0-6])([LCR])?$')
-runway_multiplier_scale = scale / 1.617833  # unit: multiplier/km
+runway_multiplier_scale = ma_scale / 1.617833  # unit: multiplier/km
 with open("sql/runways.sql") as f:
     sql_runways = f.read()
 c = sqlite3.connect(db_path)
@@ -122,8 +121,8 @@ runway_center_x_km, runway_center_y_km = location_offset(
     runways["laty"],
 )
 # Mini Airways map unit.
-runways["x"] = runway_center_x_km * scale
-runways["y"] = runway_center_y_km * scale
+runways["x"] = runway_center_x_km * ma_scale
+runways["y"] = runway_center_y_km * ma_scale
 
 for i, runway in runways.iterrows():
     runway_identifier = re.search(runway_pattern, runway["sec_ident"])
@@ -153,7 +152,7 @@ for i, runway in runways.iterrows():
 # %% Restricted area.
 with open("sql/restricted.sql") as f:
     sql_restricted_1 = f.read()
-ext_dist = 0.5
+warning_flush = 0.3048 * ma_scale  # 1000 feet
 text_size = 0.2
 text_horizontal_bound = args.max_cam_size * 16 / 9 - 0.5
 text_vertical_bound = args.max_cam_size - 0.3
@@ -182,15 +181,15 @@ for _, area in restricted.iterrows():
         airport_center_lon, airport_center_lat,
         vertex_coords[:, 0], vertex_coords[:, 1]
     )
-    vertex_x = vertex_x_km * scale
-    vertex_y = vertex_y_km * scale
+    vertex_x = vertex_x_km * ma_scale
+    vertex_y = vertex_y_km * ma_scale
     inner_shape_no_shift = Polygon(np.column_stack([vertex_x, vertex_y]))
     restricted_no_shift.append(inner_shape_no_shift)
     center = inner_shape_no_shift.centroid
     inner_shape = translate(inner_shape_no_shift, xoff=-center.x, yoff=-center.y)
     inner_path = get_coordinates(inner_shape.exterior)[:-1]
     outer_shape = inner_shape.buffer(
-        distance=ext_dist,
+        distance=warning_flush,
         join_style="mitre",
         mitre_limit=1,
     )
@@ -206,7 +205,7 @@ for _, area in restricted.iterrows():
             {"x": outer_path[i, 0], "y": outer_path[i, 1]}
             for i in range(outer_path.shape[0])
         ],
-        "extDist": ext_dist,
+        "extDist": warning_flush,
     }
     mini_airways_map["RestrictedAreas"].append(ma_area)
     label_text = restricted_type_dict.get(area["type"], "Unidentified")
@@ -221,7 +220,44 @@ for _, area in restricted.iterrows():
     }
     mini_airways_map["TxtMarkers"].append(label)
 
+
 # %% Point terrains.
+class SimplexPentagon:
+    def __init__(self, radius, ext_dist):
+        n = 5
+        k = np.arange(n)
+        theta = 0.5 * np.pi + 0.4 * np.pi * k
+        simplex = Polygon(np.column_stack([np.cos(theta), np.sin(theta)]))
+        inner_shape_ = scale(simplex, xfact=radius, yfact=radius, origin="centroid")
+        inner_path_ = get_coordinates(inner_shape_.exterior)[:-1]
+        outer_shape_ = inner_shape_.buffer(
+            distance=ext_dist,
+            join_style="mitre",
+            mitre_limit=1,
+        )
+        outer_path_ = get_coordinates(outer_shape_.exterior)[:-1]
+
+        self.terrain = {
+            "x": 0,
+            "y": 0,
+            "innerPath": [
+                {"x": inner_path_[j, 0], "y": inner_path_[j, 1]}
+                for j in range(inner_path_.shape[0])
+            ],
+            "outerPath": [
+                {"x": outer_path_[j, 0], "y": outer_path_[j, 1]}
+                for j in range(outer_path_.shape[0])
+            ],
+            "extDist": ext_dist
+        }
+
+    def create(self, x, y):
+        terrain = self.terrain.copy()
+        terrain["x"] = x
+        terrain["y"] = y
+        return terrain
+
+
 obstacles_db_path = "raw/obstacles.sqlite"
 if not os.path.isfile(obstacles_db_path):
     logging.error("Installation isn't completed. Please run:\n"
@@ -241,34 +277,13 @@ vertex_x_km, vertex_y_km = location_offset(
     airport_center_lon, airport_center_lat,
     point_obstacles["lon"], point_obstacles["lat"]
 )
-point_obstacles["x"] = vertex_x_km * scale
-point_obstacles["y"] = vertex_y_km * scale
+point_obstacles["x"] = vertex_x_km * ma_scale
+point_obstacles["y"] = vertex_y_km * ma_scale
 
-
-def create_simplex_pentagon(x, y):
-    return {
-        "x": x,
-        "y": y,
-        "innerPath": [
-            {"x": 0, "y": 1},
-            {"x": -0.9510565400123596, "y": 0.30901697278022766},
-            {"x": -0.5877851843833923, "y": -0.8090170621871948},
-            {"x": 0.5877853631973267, "y": -0.8090169429779053},
-            {"x": 0.9510564804077148, "y": 0.3090171217918396}
-        ],
-        "outerPath": [
-            {"x": 1.5399999618530273, "y": 0.5},
-            {"x": 0, "y": 1.6200000047683716},
-            {"x": -1.5399999618530273, "y": 0.5},
-            {"x": -0.949999988079071, "y": -1.309999942779541},
-            {"x": 0.949999988079071, "y": -1.309999942779541}
-        ],
-        "extDist": 0.5
-    }
-
-
+danger_flush = 0.6096 * ma_scale  # 2000 feet
+simplex_pentagon = SimplexPentagon(danger_flush, warning_flush)
 for _, object_ in point_obstacles.iterrows():
-    ma_object = create_simplex_pentagon(object_["x"], object_["y"])
+    ma_object = simplex_pentagon.create(object_["x"], object_["y"])
     mini_airways_map["Terrains"].append(ma_object)
     if pd.notna(object_["name"]):
         label = {
@@ -279,6 +294,8 @@ for _, object_ in point_obstacles.iterrows():
             "size": text_size,
         }
         mini_airways_map["TxtMarkers"].append(label)
+
+# %% Polygon obstacles.
 
 # %% Export.
 cycle_path = os.path.join(args.db_path, "cycle.json")

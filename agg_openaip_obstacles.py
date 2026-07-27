@@ -28,6 +28,7 @@ obstacles.rename(columns={
     # -> items -> height -> unit & referenceDatum
     "height.value": "height"
 }, inplace=True)
+# TODO: calc height from altitude & elevation, when height is not available.
 obstacles = obstacles[[
     "country",
     "name",
