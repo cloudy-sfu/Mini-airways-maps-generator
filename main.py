@@ -15,6 +15,7 @@ from airports_base import get_airport_info
 from coord_to_dist import location_offset, location_offset_inverse
 from little_nav_map import parse_geometry
 from open_street_map import get_map
+from open_topography import check_rate_limit, DigitalElevationModel
 
 # %% Start logging system.
 logging.basicConfig(
@@ -26,6 +27,8 @@ logging.basicConfig(
 # %% Command line arguments.
 arg_parser = ArgumentParser()
 arg_parser.add_argument("--db_path", required=True, type=str)
+arg_parser.add_argument("--dem_api_key", required=True, type=str)
+arg_parser.add_argument("--dem_daily_limit", required=False, default=50, type=int)
 arg_parser.add_argument("--icao", required=True, type=str)
 arg_parser.add_argument("--min_cam_size", required=False, default=6.5, type=float)
 arg_parser.add_argument("--max_cam_size", required=False, default=10.5, type=float)
@@ -296,6 +299,42 @@ for _, object_ in point_obstacles.iterrows():
         mini_airways_map["TxtMarkers"].append(label)
 
 # %% Polygon obstacles.
+check_rate_limit(args.dem_daily_limit)
+dem = DigitalElevationModel(west_lon, east_lon, south_lat, north_lat, args.dem_api_key)
+airport_elevation = dem.check_point(airport_center_lon, airport_center_lat)
+hill_threshold = airport_elevation + 150
+hills = dem.get_hills(hill_threshold)
+for hill in hills:
+    vertex_x_km, vertex_y_km = location_offset(
+        airport_center_lon, airport_center_lat,
+        hill[:, 0], hill[:, 1]
+    )
+    vertex_x = vertex_x_km * ma_scale
+    vertex_y = vertex_y_km * ma_scale
+    inner_shape_no_shift = Polygon(np.column_stack([vertex_x, vertex_y]))
+    center = inner_shape_no_shift.centroid
+    inner_shape = translate(inner_shape_no_shift, xoff=-center.x, yoff=-center.y)
+    inner_path = get_coordinates(inner_shape.exterior)[:-1]
+    outer_shape = inner_shape.buffer(
+        distance=warning_flush,
+        join_style="mitre",
+        mitre_limit=1,
+    )
+    outer_path = get_coordinates(outer_shape.exterior)[:-1]
+    ma_area = {
+        "x": center.x,
+        "y": center.y,
+        "innerPath": [
+            {"x": inner_path[i, 0], "y": inner_path[i, 1]}
+            for i in range(inner_path.shape[0])
+        ],
+        "outerPath": [
+            {"x": outer_path[i, 0], "y": outer_path[i, 1]}
+            for i in range(outer_path.shape[0])
+        ],
+        "extDist": warning_flush,
+    }
+    mini_airways_map["Terrains"].append(ma_area)
 
 # %% Export.
 cycle_path = os.path.join(args.db_path, "cycle.json")
