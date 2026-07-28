@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import pandas as pd
-from shapely import get_coordinates, Polygon
+from shapely import get_coordinates, Point, Polygon
 from shapely.affinity import scale, translate
 
 from airports_base import get_airport_info
@@ -191,6 +191,9 @@ for _, area in restricted.iterrows():
     center = inner_shape_no_shift.centroid
     inner_shape = translate(inner_shape_no_shift, xoff=-center.x, yoff=-center.y)
     inner_path = get_coordinates(inner_shape.exterior)[:-1]
+    # restricted area shouldn't cover airport itself
+    if inner_shape_no_shift.contains(Point([0, 0])):
+        continue
     outer_shape = inner_shape.buffer(
         distance=warning_flush,
         join_style="mitre",
