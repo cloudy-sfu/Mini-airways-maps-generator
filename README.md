@@ -104,6 +104,7 @@ Arguments:
 | `--min_cam_size`        |           | float     | Initial camera size, artificial unit defined by game developer. Default: 6.5. |
 | `--max_cam_size`        |           | float     | Camera size after applying maximum times of the airspace expansion, artificial unit defined by game developer. Default: 10.5. |
 | `--vertical_resolution` |           | int       | Vertical pixels of the background map. Aspect ratio is fixed to 16:9. If actual screen resolution is smaller than it, the game can down-sampled automatically. Default: 1440 (represents 2560*1440 resolution). |
+| `--anti_aliasing`       |           | float     | To make the mountain masking image show normally, simplify the polygon of terrain hills by Douglas-Peucker algorithm. This value is the "tolerance" parameter of this algorithm. Default: 0.1. |
 
 
 
@@ -115,4 +116,32 @@ Arguments:
 
 
 
-The output Mini Airways maps are in `results` folder.
+## Results
+
+The output Mini Airways maps are in `results` folder. 
+
+The following examples are some unique airports.
+
+Queenstown airport, where terrains make it difficult to take off & land. In real world, planes are smaller than shown in the game, therefore it's easier to get out from the valley. In addition, the current setting culls (labels) obstacles taller than 150m above the airport. If there's no terrain in the map, planes can fly in any altitude from 300m to 4000m; however, even if there are obstacles above 150m, pilots can fly in a higher altitude to avoid crashing. The game is 2D, which simplifies this situation by forbidding any entrance to such mountain area.
+
+![image-20260729135914759](./assets/image-20260729135914759.png)
+
+In Shanghai Hongqiao Airport, we can see tall buildings in Shanghai CBD and also the restricted area. With the real world scale, the runways are too close to each other, therefore two planes cannot take off in different runways at the same time. You can decrease `min_cam_size` and `max_cam_size` to zoom in, but the airspace without Shanghai CBD will be less interesting.
+
+![image-20260729141133601](./assets/image-20260729141133601.png)
+
+There exists an official map of Shanghai Pudong International Airport in the game, while we can create another version based on real-world scale. We can find that, the runways are simplified in the game official map, and the location of forbidden area is also moved in the game official map.
+
+![image-20260729140736506](./assets/image-20260729140736506.png)
+
+Washington Dulles International Airport is a balanced and comprehensive map, which has both large restricted area and natural terrains. There are 4 runways with large space in-between, so it's easy to make use of all of them.
+
+![image-20260729142259356](./assets/image-20260729142259356.png)
+
+Near Auckland International Airport, there are many broken hilly area. If the exterior of terrain is too zig-zagged, the mountain mask of terrain forbidden area cannot correctly displayed. The following image shows the issue when `anti_aliasing = 0.1`. To solve this problem, increase the value of `anti_aliasing` argument.
+
+![image-20260729141450487](./assets/image-20260729141450487.png)
+
+After increasing `anti_aliasing` to 0.2, the problem is solved.
+
+![image-20260729142515077](./assets/image-20260729142515077.png)

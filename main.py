@@ -33,12 +33,14 @@ arg_parser.add_argument("--icao", required=True, type=str)
 arg_parser.add_argument("--min_cam_size", required=False, default=6.5, type=float)
 arg_parser.add_argument("--max_cam_size", required=False, default=10.5, type=float)
 arg_parser.add_argument("--vertical_resolution", required=False, default=1440, type=int)
+arg_parser.add_argument("--anti_aliasing", required=False, default=0.1, type=float)
 args, _ = arg_parser.parse_known_args()
 
 # %% Initialization.
 db_path = os.path.join(args.db_path, "little_navmap_navigraph.sqlite")
 icao = args.icao.upper()
 os.makedirs("results", exist_ok=True)
+check_rate_limit(args.dem_daily_limit)
 
 # %% Get airport location.
 with open("sql/airport.sql") as f:
@@ -302,7 +304,6 @@ for _, object_ in point_obstacles.iterrows():
         mini_airways_map["TxtMarkers"].append(label)
 
 # %% Polygon obstacles.
-check_rate_limit(args.dem_daily_limit)
 dem = DigitalElevationModel(west_lon, east_lon, south_lat, north_lat, args.dem_api_key)
 airport_elevation = dem.check_point(airport_center_lon, airport_center_lat)
 hill_threshold = airport_elevation + 150
@@ -316,6 +317,11 @@ for hill in hills:
     vertex_y = vertex_y_km * ma_scale
     inner_shape_no_shift = Polygon(np.column_stack([vertex_x, vertex_y]))
     center = inner_shape_no_shift.centroid
+    # Anti-aliasing
+    inner_shape_no_shift = inner_shape_no_shift.simplify(args.anti_aliasing)
+    if inner_shape_no_shift.is_empty:
+        continue
+
     inner_shape = translate(inner_shape_no_shift, xoff=-center.x, yoff=-center.y)
     inner_path = get_coordinates(inner_shape.exterior)[:-1]
     outer_shape = inner_shape.buffer(
