@@ -7,4 +7,4 @@ where lat >= :south_lat and lat <= :north_lat and
           else lon >= :west_lon or lon <= :east_lon  -- crosses 180° longitude
       end
   and
-    height >= 150
+    height >= :och

@@ -11,7 +11,7 @@ session = Session()
 session.trust_env = False
 with open("headers/airports_base_search.json") as f:
     header_1 = json.load(f)
-remove_bracket = re.compile(r"\([^)]*\)")
+remove_bracket = re.compile(r"\(.*\)")
 
 
 def get_airport_info(icao):

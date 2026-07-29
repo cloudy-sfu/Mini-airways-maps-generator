@@ -104,7 +104,8 @@ Arguments:
 | `--min_cam_size`        |           | float     | Initial camera size, artificial unit defined by game developer. Default: 6.5. |
 | `--max_cam_size`        |           | float     | Camera size after applying maximum times of the airspace expansion, artificial unit defined by game developer. Default: 10.5. |
 | `--vertical_resolution` |           | int       | Vertical pixels of the background map. Aspect ratio is fixed to 16:9. If actual screen resolution is smaller than it, the game can down-sampled automatically. Default: 1440 (represents 2560*1440 resolution). |
-| `--anti_aliasing`       |           | float     | To make the mountain masking image show normally, simplify the polygon of terrain hills by Douglas-Peucker algorithm. This value is the "tolerance" parameter of this algorithm. Default: 0.1. |
+| `--anti_aliasing`       |           | float     | To make the mountain masking image show normally, simplify the polygon of terrain hills by Douglas-Peucker algorithm. This value is the "tolerance" parameter of this algorithm. Default: 0.2. |
+| `--och`                 |           | float     | Obstacle clearance height. Any obstacle (natural terrain like hills, or man-made like radio towers) that extends above this height enters the protected terminal airspace. These dominant obstructions are mapped on air traffic control (ATC) map, to ensure controllers can safely vector aircraft. Default: 150 (meters). |
 
 
 

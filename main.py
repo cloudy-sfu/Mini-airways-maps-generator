@@ -33,7 +33,8 @@ arg_parser.add_argument("--icao", required=True, type=str)
 arg_parser.add_argument("--min_cam_size", required=False, default=6.5, type=float)
 arg_parser.add_argument("--max_cam_size", required=False, default=10.5, type=float)
 arg_parser.add_argument("--vertical_resolution", required=False, default=1440, type=int)
-arg_parser.add_argument("--anti_aliasing", required=False, default=0.1, type=float)
+arg_parser.add_argument("--anti_aliasing", required=False, default=0.2, type=float)
+arg_parser.add_argument("--och", required=False, default=150, type=float)
 args, _ = arg_parser.parse_known_args()
 
 # %% Initialization.
@@ -72,9 +73,11 @@ assert not np.isnan([west_lon, east_lon, south_lat, north_lat]).any(), \
     "Airspace exceeds latitude range 85°S -> 85°N."
 background_map = get_map(
     west_lon, east_lon, south_lat, north_lat, args.vertical_resolution)
+logging.info("Fetched background map.")
 
 # %% Get airport name.
 airport_info = get_airport_info(icao)
+logging.info("Fetched airport meta information.")
 
 # %% Initialize map.
 contain_airport = re.search(r"airport", airport_info['name'], re.IGNORECASE)
@@ -153,6 +156,7 @@ for i, runway in runways.iterrows():
         "restrictLandEnd": False
     }
     mini_airways_map["Runways"].append(ma_runway)
+logging.info("Parsed airport runways from database.")
 
 # %% Restricted area.
 with open("sql/restricted.sql") as f:
@@ -227,6 +231,7 @@ for _, area in restricted.iterrows():
         "size": text_size,
     }
     mini_airways_map["TxtMarkers"].append(label)
+logging.info("Parsed restricted area from database.")
 
 
 # %% Point terrains.
@@ -279,6 +284,7 @@ point_obstacles = pd.read_sql(sql_obstacles, c, params={
     "east_lon": east_lon,
     "south_lat": south_lat,
     "north_lat": north_lat,
+    "och": args.och,
 })
 c.close()
 vertex_x_km, vertex_y_km = location_offset(
@@ -302,11 +308,12 @@ for _, object_ in point_obstacles.iterrows():
             "size": text_size,
         }
         mini_airways_map["TxtMarkers"].append(label)
+logging.info("Parsed point terrains from database.")
 
 # %% Polygon obstacles.
 dem = DigitalElevationModel(west_lon, east_lon, south_lat, north_lat, args.dem_api_key)
 airport_elevation = dem.check_point(airport_center_lon, airport_center_lat)
-hill_threshold = airport_elevation + 150
+hill_threshold = airport_elevation + args.och
 hills = dem.get_hills(hill_threshold)
 for hill in hills:
     vertex_x_km, vertex_y_km = location_offset(
@@ -319,7 +326,7 @@ for hill in hills:
     center = inner_shape_no_shift.centroid
     # Anti-aliasing
     inner_shape_no_shift = inner_shape_no_shift.simplify(args.anti_aliasing)
-    if inner_shape_no_shift.is_empty:
+    if inner_shape_no_shift.area <= 16 * args.anti_aliasing ** 2:
         continue
 
     inner_shape = translate(inner_shape_no_shift, xoff=-center.x, yoff=-center.y)
@@ -344,6 +351,7 @@ for hill in hills:
         "extDist": warning_flush,
     }
     mini_airways_map["Terrains"].append(ma_area)
+logging.info("Fetched polygon obstacles.")
 
 # %% Export.
 cycle_path = os.path.join(args.db_path, "cycle.json")
