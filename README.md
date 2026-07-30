@@ -1,5 +1,5 @@
 # Mini airways maps generator
-Generate maps of real-world airports by ICAO code in game "Mini Airways"
+Generate maps of real-world airports by ICAO code in game [Mini Airways](http://store.steampowered.com/app/2289650/)
 
 ![](https://shields.io/badge/OS-Windows_11-blue)
 ![](https://shields.io/badge/dependencies-Python_3.14-blue)
