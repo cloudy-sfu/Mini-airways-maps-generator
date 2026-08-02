@@ -139,7 +139,21 @@ Washington Dulles International Airport is a balanced and comprehensive map, whi
 
 ![image-20260729142259356](./assets/image-20260729142259356.png)
 
-Near Auckland International Airport, there are many broken hilly area. If the exterior of terrain is too zig-zagged, the mountain mask of terrain forbidden area cannot correctly displayed. The following image shows the issue when `anti_aliasing = 0.1`. To solve this problem, increase the value of `anti_aliasing` argument.
+## Fix
+
+### Terrain area shapes not filled
+
+Near Auckland International Airport, there are many broken hilly area. If the exterior of terrain is red, it means the polygon is invalid in Mini Airways map. The mountain mask of terrain forbidden area cannot correctly displayed. The following image shows the issue when `anti_aliasing = 0.1`. To solve this problem, increase the value of `anti_aliasing` argument.
+
+>   [!note]
+>
+>   Based on Mini Airways level editor's [documentation](https://m0pt5uret4t.feishu.cn/docx/LT85diaAxou1YvxMUkFcEkC4nMc), reasons of invalid include:
+>
+>   -   Too many boundary points.
+>   -   Too sharp angles.
+>   -   Cross paths. $\leftarrow$ This issue is solved in this program.
+>
+>   To manually simplify exterior, hold `Ctrl` and click the vertex to delete it in Mini Airways level editor.
 
 ![image-20260729141450487](./assets/image-20260729141450487.png)
 

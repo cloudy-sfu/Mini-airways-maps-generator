@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import pandas as pd
-from shapely import get_coordinates, Point, Polygon
+from shapely import get_coordinates, make_valid, Point, Polygon
 from shapely.affinity import scale, translate
 
 from airports_base import get_airport_info
@@ -326,6 +326,7 @@ for hill in hills:
     center = inner_shape_no_shift.centroid
     # Anti-aliasing
     inner_shape_no_shift = inner_shape_no_shift.simplify(args.anti_aliasing)
+    inner_shape_no_shift = make_valid(inner_shape_no_shift, method="structure")
     if inner_shape_no_shift.area <= 16 * args.anti_aliasing ** 2:
         continue
 
